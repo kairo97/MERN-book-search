@@ -1,108 +1,57 @@
-const {
-  GraphQLObjectType,
-  GraphQLInputObjectType,
-  GraphQLString,
-  GraphQLList,
-  GraphQLNonNull,
-  GraphQLSchema,
-} = require('graphql');
+const { Schema, model } = require('mongoose');
 const bcrypt = require('bcrypt');
-const User = require('./models/User');
 
-// Define the Book input type
-const BookInputType = new GraphQLInputObjectType({
-  name: 'BookInput',
-  fields: {
-    authors: { type: GraphQLList(GraphQLString) },
-    description: { type: GraphQLNonNull(GraphQLString) },
-    bookId: { type: GraphQLNonNull(GraphQLString) },
-    image: { type: GraphQLString },
-    link: { type: GraphQLString },
-    title: { type: GraphQLNonNull(GraphQLString) },
-  },
-});
+// import schema from Book.js
+const bookSchema = require('./Book');
 
-// Define the User type
-const UserType = new GraphQLObjectType({
-  name: 'User',
-  fields: {
-    _id: { type: GraphQLNonNull(GraphQLString) },
-    username: { type: GraphQLNonNull(GraphQLString) },
-    email: { type: GraphQLNonNull(GraphQLString) },
-    password: { type: GraphQLNonNull(GraphQLString) },
-    savedBooks: { type: GraphQLList(BookType) },
-    bookCount: {
-      type: GraphQLNonNull(GraphQLInt),
-      resolve: (user) => user.savedBooks.length,
+const userSchema = new Schema(
+  {
+    username: {
+      type: String,
+      required: true,
+      unique: true,
     },
-  },
-});
-
-// Define the Query type
-const QueryType = new GraphQLObjectType({
-  name: 'Query',
-  fields: {
-    // Define a field to get a user by ID
-    getUserById: {
-      type: UserType,
-      args: {
-        _id: { type: GraphQLNonNull(GraphQLString) },
-      },
-      resolve: async (parent, args) => {
-        const user = await User.findById(args._id);
-        return user;
-      },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      match: [/.+@.+\..+/, 'Must use a valid email address'],
     },
-  },
-});
-
-// Define the Mutation type
-const MutationType = new GraphQLObjectType({
-  name: 'Mutation',
-  fields: {
-    // Define a field to create a new user
-    createUser: {
-      type: UserType,
-      args: {
-        username: { type: GraphQLNonNull(GraphQLString) },
-        email: { type: GraphQLNonNull(GraphQLString) },
-        password: { type: GraphQLNonNull(GraphQLString) },
-      },
-      resolve: async (parent, args) => {
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(args.password, saltRounds);
-        const newUser = new User({
-          username: args.username,
-          email: args.email,
-          password: hashedPassword,
-        });
-        const result = await newUser.save();
-        return result;
-      },
+    password: {
+      type: String,
+      required: true,
     },
-    // Define a field to add a book to a user's savedBooks array
-    addBook: {
-      type: UserType,
-      args: {
-        userId: { type: GraphQLNonNull(GraphQLString) },
-        book: { type: GraphQLNonNull(BookInputType) },
-      },
-      resolve: async (parent, args) => {
-        const updatedUser = await User.findByIdAndUpdate(
-          args.userId,
-          { $push: { savedBooks: args.book } },
-          { new: true }
-        );
-        return updatedUser;
-      },
-    },
+    // set savedBooks to be an array of data that adheres to the bookSchema
+    savedBooks: [bookSchema],
   },
+  // set this to use virtual below
+  {
+    toJSON: {
+      virtuals: true,
+    },
+  }
+);
+
+// hash user password
+userSchema.pre('save', async function (next) {
+  if (this.isNew || this.isModified('password')) {
+    const saltRounds = 10;
+    this.password = await bcrypt.hash(this.password, saltRounds);
+  }
+
+  next();
 });
 
-// Define the overall GraphQL schema
-const schema = new GraphQLSchema({
-  query: QueryType,
-  mutation: MutationType,
+// custom method to compare and validate password for logging in
+userSchema.methods.isCorrectPassword = async function (password) {
+  return bcrypt.compare(password, this.password);
+};
+
+// when we query a user, we'll also get another field called `bookCount` with the number of saved books we have
+userSchema.virtual('bookCount').get(function () {
+  return this.savedBooks.length;
 });
 
-module.exports = schema;
+const User = model('User', userSchema);
+
+module.exports = User;
