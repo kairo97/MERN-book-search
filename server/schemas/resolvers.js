@@ -3,14 +3,19 @@ const { Book, Author, User } = require('../models');
 const resolvers = {
     Query: {
         books: async () => {
-            return await Book.find({}).populate("author")
+            return await Book.find({}).populate("books")
         },
-    authors: async () => {
-        return await Author.find({}).populate('books')
-    },
-    singleAuthor: async () => {
-        return await Author.findById({}).populate('books')
-    }},
+        singleBook: async () => {
+            return await Book.findById({}).populate('books')
+        },
+        users: async () => {
+            return await User.find({}).populate('users')
+        },
+        singleUser: async () => {
+            return await User.findById({}).populate('users')
+        }
+   
+        },
     Mutation:{
         addBook: async (parent, args) => {
         return await Book.create(args)
@@ -21,10 +26,16 @@ const resolvers = {
         removeBook: async (parent, args) => {
             return await Book.destroy(args.bookId, args)
         },
-        addAuthor: async (parent, args) => {
-            return await Author.create(args)
+        addUser: async (parent, args) => {
+            return await User.create(args)
+        },
+        editUser: async (parent, args) => {
+            return await User.findByIdAndUpdate(args.userId, args, {new:true})
+        },
+        removeUser: async (parent, args) => {
+            return await User.destroy(args.userId, args)
         }
-}
+    }
 }
 
 module.exports = resolvers;
