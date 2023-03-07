@@ -1,34 +1,18 @@
 const express = require('express');
-const { graphqlHTTP} = require('express-graphql')
+const {ApolloServer} = require("apollo-server-express");
 const path = require('path');
-// const db = require('./config/connection');
+const { typeDefs } = require('./schemas');
+const db = require('./config/connection');
 // const routes = require('./routes');
-const {
-  GraphQLSchema, GraphQLObjectType,
-  GraphQLString,  GraphQLList, GraphQLInt, GraphQLNonNull
-} = require('graphql')
-const app = express();
+
+
 const PORT = process.env.PORT || 3001;
-const BookType = new GraphQLObjectType({
-  name: "Book",
-  description: "this represents a Book",
-  fields: () => ({
-    id: { type: GraphQlNonNull(GraphQLInt) },
-    name: {type: GraphQlNonNull(GraphQLString)},
-    authorId: {type: GraphQlNonNull(GraphQLInt)}
-  })
+const server = new ApolloServer({
+  typeDefs, resolvers
 })
-const RootQueryType = new GraphQLObjectType({
-  name: "Query",
-  description: "Root Query",
-  fields: () => ({
-    books: {
-      type: new GraphQLList(BookType),
-      description: "list of books",
-      resolve: () => books
-    }
-  })
-})
+
+const app = express();
+
 app.use('/graphql', graphqlHTTP({
   schema:schema,
   graphiql: true
@@ -41,8 +25,20 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/build')));
 }
 
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, "../client/build/index.html"));
+})
 // app.use(routes);
+const startApolloSever = async (typeDefs, resolvers) => {
+  await server.start();
+  server.applyMiddleware({ app });
 
-// db.once('open', () => {
-  app.listen(PORT, () => console.log(`🌍 Now listening on localhost:${PORT}`));
+  db.once('open', () => {
+    app.listen(PORT, () => 
+    console.log(`🌍 Now listening on localhost:${PORT}`));
+    console.log(`Use GraphQL at http://localhost:${PORT}${server.graphqlPath}`);
+    
+  })
+}
 
+startApolloSever(typeDefs, resolvers);
