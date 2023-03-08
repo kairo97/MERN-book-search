@@ -1,7 +1,7 @@
 const express = require('express');
 const {ApolloServer} = require("apollo-server-express");
 const path = require('path');
-const { typeDefs } = require('./schemas');
+const { typeDefs, resolvers } = require('./schemas');
 const db = require('./config/connection');
 // const routes = require('./routes');
 
@@ -13,10 +13,10 @@ const server = new ApolloServer({
 
 const app = express();
 
-app.use('/graphql', graphqlHTTP({
-  schema:schema,
-  graphiql: true
-}))
+// app.use('/graphql', graphqlHTTP({
+//   schema:schema,
+//   graphiql: true
+// }))
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
