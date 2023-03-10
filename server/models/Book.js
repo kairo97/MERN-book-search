@@ -27,6 +27,9 @@ const bookSchema = new Schema({
     required: true,
   },
 });
+bookSchema.statics.findOneByBookId = function (bookId) {
+  return this.findOne({ bookId });
+};
 
 const Book = model('Book', bookSchema);
 
